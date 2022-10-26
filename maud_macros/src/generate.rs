@@ -1,6 +1,6 @@
 use proc_macro2::{Delimiter, Group, Ident, Literal, Span, TokenStream, TokenTree};
 use proc_macro_error::SpanRange;
-use quote::quote;
+use quote::{quote, ToTokens};
 
 use crate::{ast::*, escape};
 
@@ -58,8 +58,31 @@ impl Generator {
             Markup::Let { tokens, .. } => build.push_tokens(tokens),
             Markup::Special { segments } => {
                 for Special { head, body, .. } in segments {
+                    let token = head.to_token_stream().into_iter().next();
+                    let after = if let Some(ident) = token.and_then(|token| match token {
+                        TokenTree::Ident(ident) => Some(ident),
+                        _ => None,
+                    }) {
+                        match ident.to_string().as_str() {
+                            "if" => {
+                                let output_ident = &self.output_ident;
+                                build.push_tokens(quote!(#output_ident.push_if_frame();));
+                                Some(quote!(#output_ident.pop_if_frame();))
+                            }
+                            "while" => None,
+                            "for" => None,
+                            "match" => None,
+                            "let" => None,
+                            _ => None,
+                        }
+                    } else {
+                        None
+                    };
                     build.push_tokens(head);
                     self.block(body, build);
+                    if let Some(after) = after {
+                        build.push_tokens(after);
+                    }
                 }
             }
             Markup::Match {
@@ -103,7 +126,9 @@ impl Generator {
 
     fn splice(&self, expr: TokenStream, build: &mut Builder) {
         let output_ident = self.output_ident.clone();
-        build.push_tokens(quote!(maud::Render::render_to(&#expr, &mut #output_ident);));
+        build.push_tokens(
+            quote!(#output_ident.push_dynamic(maud::Render::render(&#expr).into_string());),
+        );
     }
 
     fn element(&self, name: TokenStream, attrs: Vec<Attr>, body: ElementBody, build: &mut Builder) {
@@ -284,7 +309,7 @@ impl Builder {
         let push_str_expr = {
             let output_ident = self.output_ident.clone();
             let string = TokenTree::Literal(Literal::string(&self.tail));
-            quote!(#output_ident.push_str(#string);)
+            quote!(#output_ident.push_static(#string);)
         };
         self.tail.clear();
         self.tokens.extend(push_str_expr);
