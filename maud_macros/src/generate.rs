@@ -63,14 +63,17 @@ impl Generator {
                         TokenTree::Ident(ident) => Some(ident),
                         _ => None,
                     }) {
+                        let output_ident = &self.output_ident;
                         match ident.to_string().as_str() {
                             "if" => {
-                                let output_ident = &self.output_ident;
                                 build.push_tokens(quote!(#output_ident.push_if_frame();));
-                                Some(quote!(#output_ident.pop_if_frame();))
+                                Some(quote!(#output_ident.pop_frame();))
                             }
                             "while" => None,
-                            "for" => None,
+                            "for" => {
+                                build.push_tokens(quote!(#output_ident.push_for_frame();));
+                                Some(quote!(#output_ident.pop_frame();))
+                            }
                             "match" => None,
                             "let" => None,
                             _ => None,
