@@ -37,6 +37,9 @@ pub enum Markup {
         arms: Vec<MatchArm>,
         arms_span: SpanRange,
     },
+    Patrial {
+        body: TokenStream,
+    },
 }
 
 impl Markup {
@@ -61,6 +64,7 @@ impl Markup {
             Markup::Match {
                 at_span, arms_span, ..
             } => at_span.join_range(arms_span),
+            Markup::Patrial { ref body } => span_tokens(body.clone()),
         }
     }
 }

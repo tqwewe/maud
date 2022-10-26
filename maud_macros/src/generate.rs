@@ -106,6 +106,10 @@ impl Generator {
                 body.set_span(arms_span.collapse());
                 build.push_tokens(quote!(#head #body));
             }
+            Markup::Patrial { body } => {
+                let output_ident = &self.output_ident;
+                build.push_tokens(quote!(#output_ident.push_nested(#body);));
+            }
         }
     }
 

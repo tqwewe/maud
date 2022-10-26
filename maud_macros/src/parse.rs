@@ -128,6 +128,13 @@ impl Parser {
                             }
                         }
                     }
+                    Some(TokenTree::Group(group))
+                        if group.delimiter() == Delimiter::Parenthesis =>
+                    {
+                        ast::Markup::Patrial {
+                            body: group.stream(),
+                        }
+                    }
                     _ => {
                         abort!(at_span, "expected keyword after `@`");
                     }
