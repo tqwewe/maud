@@ -30,6 +30,8 @@ impl Generator {
     }
 
     fn markup(&self, markup: Markup, build: &mut Builder) {
+        let output_ident = &self.output_ident;
+
         match markup {
             Markup::ParseError { .. } => {}
             Markup::Block(Block {
@@ -57,35 +59,34 @@ impl Generator {
             Markup::Element { name, attrs, body } => self.element(name, attrs, body, build),
             Markup::Let { tokens, .. } => build.push_tokens(tokens),
             Markup::Special { segments } => {
+                let mut after = TokenStream::new();
                 for Special { head, body, .. } in segments {
                     let token = head.to_token_stream().into_iter().next();
-                    let after = if let Some(ident) = token.and_then(|token| match token {
+                    let ident = token.and_then(|token| match token {
                         TokenTree::Ident(ident) => Some(ident),
                         _ => None,
-                    }) {
-                        let output_ident = &self.output_ident;
+                    });
+                    if let Some(ident) = ident {
                         match ident.to_string().as_str() {
                             "if" => {
                                 build.push_tokens(quote!(#output_ident.push_if_frame();));
-                                Some(quote!(#output_ident.pop_frame();))
+                                after.extend(quote!(#output_ident.pop_frame();))
                             }
-                            "while" => None,
+                            "while" => {}
                             "for" => {
                                 build.push_tokens(quote!(#output_ident.push_for_frame();));
-                                Some(quote!(#output_ident.pop_frame();))
+                                after.extend(quote!(#output_ident.pop_frame();))
                             }
-                            "match" => None,
-                            "let" => None,
-                            _ => None,
+                            "match" => {}
+                            "let" => {}
+                            _ => {}
                         }
-                    } else {
-                        None
-                    };
+                    }
                     build.push_tokens(head);
                     self.block(body, build);
-                    if let Some(after) = after {
-                        build.push_tokens(after);
-                    }
+                }
+                if !after.is_empty() {
+                    build.push_tokens(after);
                 }
             }
             Markup::Match {
@@ -107,7 +108,6 @@ impl Generator {
                 build.push_tokens(quote!(#head #body));
             }
             Markup::Patrial { body } => {
-                let output_ident = &self.output_ident;
                 build.push_tokens(quote!(#output_ident.push_nested(#body);));
             }
         }
@@ -155,6 +155,11 @@ impl Generator {
         build.push_escaped(&name_to_string(name));
     }
 
+    fn event(&self, ty: TokenStream, build: &mut Builder) {
+        let output_ident = &self.output_ident;
+        build.push_tokens(quote!(#output_ident.push_static(::std::any::type_name::<#ty>());));
+    }
+
     fn attrs(&self, attrs: Vec<Attr>, build: &mut Builder) {
         for NamedAttr { name, attr_type } in desugar_attrs(attrs) {
             match attr_type {
@@ -163,6 +168,13 @@ impl Generator {
                     self.name(name, build);
                     build.push_str("=\"");
                     self.markup(value, build);
+                    build.push_str("\"");
+                }
+                AttrType::Event { ty } => {
+                    build.push_str(" ");
+                    self.name(name, build);
+                    build.push_str("=\"");
+                    self.event(ty, build);
                     build.push_str("\"");
                 }
                 AttrType::Optional {
@@ -207,6 +219,8 @@ fn desugar_attrs(attrs: Vec<Attr>) -> Vec<NamedAttr> {
     let mut classes_toggled = vec![];
     let mut ids = vec![];
     let mut named_attrs = vec![];
+    let mut event_attrs = vec![];
+    let mut value_attrs = vec![];
     for attr in attrs {
         match attr {
             Attr::Class {
@@ -221,11 +235,21 @@ fn desugar_attrs(attrs: Vec<Attr>) -> Vec<NamedAttr> {
             } => classes_static.push(name),
             Attr::Id { name, .. } => ids.push(name),
             Attr::Named { named_attr } => named_attrs.push(named_attr),
+            Attr::Event { name, ty } => event_attrs.push((name, ty)),
+            Attr::Value { name, attr_type } => value_attrs.push((name, attr_type)),
         }
     }
     let classes = desugar_classes_or_ids("class", classes_static, classes_toggled);
     let ids = desugar_classes_or_ids("id", ids, vec![]);
-    classes.into_iter().chain(ids).chain(named_attrs).collect()
+    let event_attrs = event_attrs.into_iter().map(desugar_event);
+    let value_attrs = value_attrs.into_iter().map(desugar_value);
+    classes
+        .into_iter()
+        .chain(ids)
+        .chain(named_attrs)
+        .chain(event_attrs)
+        .chain(value_attrs)
+        .collect()
 }
 
 fn desugar_classes_or_ids(
@@ -264,6 +288,20 @@ fn desugar_classes_or_ids(
             }),
         },
     })
+}
+
+fn desugar_event((name, ty): (TokenStream, TokenStream)) -> NamedAttr {
+    NamedAttr {
+        name: quote!(phx-#name),
+        attr_type: AttrType::Event { ty },
+    }
+}
+
+fn desugar_value((name, attr_type): (TokenStream, AttrType)) -> NamedAttr {
+    NamedAttr {
+        name: quote!(phx-value-#name),
+        attr_type,
+    }
 }
 
 fn prepend_leading_space(name: Markup, leading_space: &mut bool) -> Vec<Markup> {

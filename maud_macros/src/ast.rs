@@ -1,5 +1,6 @@
 use proc_macro2::{TokenStream, TokenTree};
 use proc_macro_error::SpanRange;
+use quote::ToTokens;
 
 #[derive(Debug)]
 pub enum Markup {
@@ -83,6 +84,14 @@ pub enum Attr {
     Named {
         named_attr: NamedAttr,
     },
+    Event {
+        name: TokenStream,
+        ty: TokenStream,
+    },
+    Value {
+        name: TokenStream,
+        attr_type: AttrType,
+    },
 }
 
 impl Attr {
@@ -109,6 +118,20 @@ impl Attr {
                 hash_span.join_range(name_span)
             }
             Attr::Named { ref named_attr } => named_attr.span(),
+            Attr::Event { ref name, ref ty } => {
+                span_tokens(name.clone()).join_range(span_tokens(ty.clone()))
+            }
+            Attr::Value {
+                ref name,
+                ref attr_type,
+            } => {
+                let name_span = span_tokens(name.clone());
+                if let Some(attr_type_span) = attr_type.span() {
+                    name_span.join_range(attr_type_span)
+                } else {
+                    name_span
+                }
+            }
         }
     }
 }
@@ -174,6 +197,7 @@ impl NamedAttr {
 #[derive(Debug)]
 pub enum AttrType {
     Normal { value: Markup },
+    Event { ty: TokenStream },
     Optional { toggler: Toggler },
     Empty { toggler: Option<Toggler> },
 }
@@ -182,11 +206,25 @@ impl AttrType {
     fn span(&self) -> Option<SpanRange> {
         match *self {
             AttrType::Normal { ref value } => Some(value.span()),
+            AttrType::Event { ref ty } => Some(span_tokens(ty.clone().to_token_stream())),
             AttrType::Optional { ref toggler } => Some(toggler.span()),
             AttrType::Empty { ref toggler } => toggler.as_ref().map(Toggler::span),
         }
     }
 }
+
+// #[derive(Debug)]
+// pub struct EventAttr {
+//     pub name: TokenStream,
+//     pub ty: syn::Type,
+// }
+
+// impl EventAttr {
+//     fn span(&self) -> SpanRange {
+//         let name_span = span_tokens(self.name.to_token_stream());
+//         name_span.join_range(span_tokens(self.ty.to_token_stream()))
+//     }
+// }
 
 #[derive(Debug)]
 pub struct Toggler {

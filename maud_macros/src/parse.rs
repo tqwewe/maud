@@ -171,7 +171,7 @@ impl Parser {
 
                 // `.try_namespaced_name()` should never fail as we've
                 // already seen an `Ident`
-                let name = self.try_namespaced_name().expect("identifier");
+                let name = self.try_name().expect("identifier");
                 self.element(name)
             }
             // Div element shorthand
@@ -642,6 +642,44 @@ impl Parser {
                             name,
                         });
                     }
+                    // Event shorthand
+                    Some(TokenTree::Punct(ref punct)) if punct.as_char() == '@' => {
+                        self.advance();
+                        let name = match self.try_name() {
+                            Some(name) => name,
+                            None => abort_call_site!("missing event name"),
+                        };
+                        match self.peek() {
+                            Some(token) if matches!(token, TokenTree::Punct(ref punct) if punct.as_char() == '=') =>
+                            {
+                                self.advance();
+                            }
+                            _ => abort_call_site!("expected `=`"),
+                        }
+                        let ty = match self.event_type() {
+                            Some(ty) => ty,
+                            None => abort_call_site!("Expected event type"),
+                        };
+                        attrs.push(ast::Attr::Event { name, ty });
+                    }
+                    // Event value shorthand
+                    Some(TokenTree::Punct(ref punct)) if punct.as_char() == ':' => {
+                        self.advance();
+                        let name = match self.try_name() {
+                            Some(name) => name,
+                            None => abort_call_site!("missing value name"),
+                        };
+                        match self.peek() {
+                            Some(token) if matches!(token, TokenTree::Punct(ref punct) if punct.as_char() == '=') =>
+                            {
+                                self.advance();
+                            }
+                            _ => abort_call_site!("expected `=`"),
+                        }
+                        let value = self.markup();
+                        let attr_type = ast::AttrType::Normal { value };
+                        attrs.push(ast::Attr::Value { name, attr_type });
+                    }
                     // If it's not a valid attribute, backtrack and bail out
                     _ => break,
                 }
@@ -667,6 +705,8 @@ impl Parser {
                     .into_iter()
                     .map(|token| token.to_string())
                     .collect(),
+                ast::Attr::Event { name, .. } => name.to_string(),
+                ast::Attr::Value { name, .. } => name.to_string(),
             };
             let entry = attr_map.entry(name).or_default();
             entry.push(attr.span());
@@ -701,6 +741,17 @@ impl Parser {
                     cond: group.stream(),
                     cond_span: SpanRange::single_span(group.span()),
                 })
+            }
+            _ => None,
+        }
+    }
+
+    // Parse an event type.
+    fn event_type(&mut self) -> Option<TokenStream> {
+        match self.peek() {
+            Some(TokenTree::Group(ref group)) if group.delimiter() == Delimiter::Parenthesis => {
+                self.advance();
+                Some(group.stream())
             }
             _ => None,
         }
