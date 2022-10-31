@@ -60,7 +60,7 @@ impl Generator {
             Markup::Let { tokens, .. } => build.push_tokens(tokens),
             Markup::Special { segments } => {
                 let mut after = TokenStream::new();
-                for Special { head, body, .. } in segments {
+                for Special { head, mut body, .. } in segments {
                     let token = head.to_token_stream().into_iter().next();
                     let ident = token.and_then(|token| match token {
                         TokenTree::Ident(ident) => Some(ident),
@@ -74,6 +74,15 @@ impl Generator {
                             }
                             "while" => {}
                             "for" => {
+                                body.markups.insert(
+                                    0,
+                                    Markup::Builder {
+                                        tokens: quote!(#output_ident.push_for_item();),
+                                    },
+                                );
+                                body.markups.push(Markup::Builder {
+                                    tokens: quote!(#output_ident.pop_for_item();),
+                                });
                                 build.push_tokens(quote!(#output_ident.push_for_frame();));
                                 after.extend(quote!(#output_ident.pop_frame();))
                             }
@@ -109,6 +118,9 @@ impl Generator {
             }
             Markup::Patrial { body } => {
                 build.push_tokens(quote!(#output_ident.push_nested(#body);));
+            }
+            Markup::Builder { tokens } => {
+                build.push_tokens(tokens);
             }
         }
     }
