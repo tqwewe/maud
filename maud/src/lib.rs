@@ -14,7 +14,7 @@ extern crate alloc;
 use alloc::{borrow::Cow, boxed::Box, string::String};
 use core::fmt::{self, Arguments, Display, Write};
 
-pub use maud_macros::{html, html_debug};
+pub use maud_macros::html;
 
 mod escape;
 
@@ -172,7 +172,7 @@ macro_rules! impl_render_with_itoa {
         $(
             impl Render for $ty {
                 fn render_to(&self, w: &mut String) {
-                    let _ = itoa::fmt(w, *self);
+                    w.push_str(itoa::Buffer::new().format(*self));
                 }
             }
         )*
