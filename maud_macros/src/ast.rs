@@ -41,6 +41,9 @@ pub enum Markup {
     Patrial {
         body: TokenStream,
     },
+    Builder {
+        tokens: TokenStream,
+    },
 }
 
 impl Markup {
@@ -66,6 +69,7 @@ impl Markup {
                 at_span, arms_span, ..
             } => at_span.join_range(arms_span),
             Markup::Patrial { ref body } => span_tokens(body.clone()),
+            Markup::Builder { ref tokens } => span_tokens(tokens.clone()),
         }
     }
 }
