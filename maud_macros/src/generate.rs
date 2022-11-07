@@ -173,6 +173,7 @@ impl Generator {
     }
 
     fn attrs(&self, attrs: Vec<Attr>, build: &mut Builder) {
+        let output_ident = &self.output_ident;
         for NamedAttr { name, attr_type } in desugar_attrs(attrs) {
             match attr_type {
                 AttrType::Normal { value } => {
@@ -202,7 +203,11 @@ impl Generator {
                         build.push_str("\"");
                         build.finish()
                     };
-                    build.push_tokens(quote!(if let Some(#inner_value) = (#cond) { #body }));
+                    build.push_tokens(quote! {
+                        #output_ident.push_if_frame();
+                        if let Some(#inner_value) = (#cond) { #body }
+                        #output_ident.pop_frame();
+                    });
                 }
                 AttrType::Empty { toggler: None } => {
                     build.push_str(" ");
