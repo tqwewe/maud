@@ -1,7 +1,7 @@
 [workspace]
 members = [
-    "maud_macros",
-    "maud",
+    "maud_live_view_macros",
+    "maud_live_view",
 ]
 exclude = [
     "docs",

@@ -1,5 +1,5 @@
 [package]
-name = "maud_macros"
+name = "maud_live_view_macros"
 # When releasing a new version, please update html_root_url in src/lib.rs
 version = "0.24.0"
 authors = ["Chris Wong <lambda.fairy@gmail.com>"]
@@ -17,5 +17,5 @@ proc-macro2 = "1.0.23"
 proc-macro-error = "1.0.0"
 
 [lib]
-name = "maud_macros"
+name = "maud_live_view_macros"
 proc-macro = true
