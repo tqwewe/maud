@@ -1,12 +1,11 @@
 [package]
 name = "maud-live-view"
 # When releasing a new version, please update html_root_url in src/lib.rs
-version = "0.24.0"
+version = "0.24.1"
 authors = ["Chris Wong <lambda.fairy@gmail.com>"]
 license = "MIT/Apache-2.0"
-documentation = "https://docs.rs/maud/"
-homepage = "https://maud.lambda.xyz/"
-repository = "https://github.com/lambda-fairy/maud"
+documentation = "https://docs.rs/maud-live-view/"
+repository = "https://github.com/lunatic-solutions/maud_live_view"
 description = "Compile-time HTML templates."
 categories = ["template-engine"]
 edition = "2021"
