@@ -146,7 +146,7 @@ impl Generator {
     fn splice(&self, expr: TokenStream, build: &mut Builder) {
         let output_ident = self.output_ident.clone();
         build.push_tokens(
-            quote!(#output_ident.push_dynamic(maud_live_view::Render::render(&#expr).into_string());),
+            quote!(#output_ident.push_dynamic(submillisecond_live_view::maud_live_view::Render::render(&#expr).into_string());),
         );
     }
 
