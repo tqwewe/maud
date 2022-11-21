@@ -172,6 +172,28 @@ impl Generator {
         build.push_tokens(quote!(#output_ident.push_static(::std::any::type_name::<#ty>());));
     }
 
+    fn anonymous_event(
+        &self,
+        id: &str,
+        ident: TokenStream,
+        body: TokenStream,
+        build: &mut Builder,
+    ) {
+        let output_ident = &self.output_ident;
+        build.push_tokens(quote!(#output_ident.push_static(#id);));
+        build.push_tokens(
+            quote!(#output_ident.push_anonymous_event((|#ident, event_name| {
+                if event_name != #id {
+                    return false;
+                }
+
+                (|| { #body })();
+
+                true
+            }) as fn(&mut Self, &str) -> bool);),
+        );
+    }
+
     fn attrs(&self, attrs: Vec<Attr>, build: &mut Builder) {
         let output_ident = &self.output_ident;
         for NamedAttr { name, attr_type } in desugar_attrs(attrs) {
@@ -183,11 +205,22 @@ impl Generator {
                     self.markup(value, build);
                     build.push_str("\"");
                 }
-                AttrType::Event { ty } => {
+                AttrType::Event {
+                    ty: EventAttr::Ty(ty),
+                } => {
                     build.push_str(" ");
                     self.name(name, build);
                     build.push_str("=\"");
                     self.event(ty, build);
+                    build.push_str("\"");
+                }
+                AttrType::Event {
+                    ty: EventAttr::Anonymous { id, ident, body },
+                } => {
+                    build.push_str(" ");
+                    self.name(name, build);
+                    build.push_str("=\"");
+                    self.anonymous_event(&id, ident, body, build);
                     build.push_str("\"");
                 }
                 AttrType::Optional {
@@ -307,7 +340,7 @@ fn desugar_classes_or_ids(
     })
 }
 
-fn desugar_event((name, ty): (TokenStream, TokenStream)) -> NamedAttr {
+fn desugar_event((name, ty): (TokenStream, EventAttr)) -> NamedAttr {
     NamedAttr {
         name: quote!(phx-#name),
         attr_type: AttrType::Event { ty },
