@@ -90,7 +90,7 @@ pub enum Attr {
     },
     Event {
         name: TokenStream,
-        ty: TokenStream,
+        ty: EventAttr,
     },
     Value {
         name: TokenStream,
@@ -122,9 +122,7 @@ impl Attr {
                 hash_span.join_range(name_span)
             }
             Attr::Named { ref named_attr } => named_attr.span(),
-            Attr::Event { ref name, ref ty } => {
-                span_tokens(name.clone()).join_range(span_tokens(ty.clone()))
-            }
+            Attr::Event { ref name, ref ty } => span_tokens(name.clone()).join_range(ty.span()),
             Attr::Value {
                 ref name,
                 ref attr_type,
@@ -201,7 +199,7 @@ impl NamedAttr {
 #[derive(Debug)]
 pub enum AttrType {
     Normal { value: Markup },
-    Event { ty: TokenStream },
+    Event { ty: EventAttr },
     Optional { toggler: Toggler },
     Empty { toggler: Option<Toggler> },
 }
@@ -210,25 +208,31 @@ impl AttrType {
     fn span(&self) -> Option<SpanRange> {
         match *self {
             AttrType::Normal { ref value } => Some(value.span()),
-            AttrType::Event { ref ty } => Some(span_tokens(ty.clone().to_token_stream())),
+            AttrType::Event { ref ty } => Some(ty.span()),
             AttrType::Optional { ref toggler } => Some(toggler.span()),
             AttrType::Empty { ref toggler } => toggler.as_ref().map(Toggler::span),
         }
     }
 }
 
-// #[derive(Debug)]
-// pub struct EventAttr {
-//     pub name: TokenStream,
-//     pub ty: syn::Type,
-// }
+#[derive(Debug)]
+pub enum EventAttr {
+    Ty(TokenStream),
+    Anonymous {
+        id: String,
+        ident: TokenStream,
+        body: TokenStream,
+    },
+}
 
-// impl EventAttr {
-//     fn span(&self) -> SpanRange {
-//         let name_span = span_tokens(self.name.to_token_stream());
-//         name_span.join_range(span_tokens(self.ty.to_token_stream()))
-//     }
-// }
+impl EventAttr {
+    fn span(&self) -> SpanRange {
+        match self {
+            EventAttr::Ty(ty) => span_tokens(ty.clone().to_token_stream()),
+            EventAttr::Anonymous { body, .. } => span_tokens(body.clone().to_token_stream()),
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct Toggler {

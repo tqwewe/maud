@@ -1,20 +1,20 @@
 [package]
-name = "maud_live_view_macros"
+name = "maud-live-view-macros"
 # When releasing a new version, please update html_root_url in src/lib.rs
-version = "0.24.0"
+version = "0.24.2"
 authors = ["Chris Wong <lambda.fairy@gmail.com>"]
 license = "MIT/Apache-2.0"
-documentation = "https://docs.rs/maud_macros/"
-homepage = "https://maud.lambda.xyz/"
-repository = "https://github.com/lambda-fairy/maud"
+documentation = "https://docs.rs/maud-live-view-macros/"
+repository = "https://github.com/lunatic-solutions/maud_live_view"
 description = "Compile-time HTML templates."
 edition = "2021"
 
 [dependencies]
-syn = "1.0.8"
-quote = "1.0.7"
+syn = { version = "1.0.8", features = ["full"] }
 proc-macro2 = "1.0.23"
 proc-macro-error = "1.0.0"
+quote = "1.0.7"
+rand = "0.8"
 
 [lib]
 name = "maud_live_view_macros"

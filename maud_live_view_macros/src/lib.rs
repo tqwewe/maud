@@ -26,7 +26,6 @@ fn expand(input: TokenStream) -> TokenStream {
     let stmts = generate::generate(markups, output_ident.clone());
     quote!({
         extern crate alloc;
-        extern crate maud_live_view;
         let mut #output_ident = submillisecond_live_view::rendered::Rendered::builder();
         #stmts
         #output_ident.build()

@@ -1,10 +1,12 @@
 use proc_macro2::{Delimiter, Ident, Literal, Spacing, Span, TokenStream, TokenTree};
 use proc_macro_error::{abort, abort_call_site, emit_error, SpanRange};
+use quote::ToTokens;
+use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use std::collections::HashMap;
 
-use syn::Lit;
+use syn::{ExprClosure, Lit};
 
-use crate::ast;
+use crate::ast::{self, EventAttr};
 
 pub fn parse(input: TokenStream) -> Vec<ast::Markup> {
     Parser::new(input).markups()
@@ -656,9 +658,12 @@ impl Parser {
                             }
                             _ => abort_call_site!("expected `=`"),
                         }
-                        let ty = match self.event_type() {
-                            Some(ty) => ty,
-                            None => abort_call_site!("Expected event type"),
+                        let ty = match self.anonymous_event() {
+                            Some(ev) => ev,
+                            None => match self.event_type() {
+                                Some(ty) => EventAttr::Ty(ty),
+                                None => abort_call_site!("Expected event type or closure"),
+                            },
                         };
                         attrs.push(ast::Attr::Event { name, ty });
                     }
@@ -752,6 +757,37 @@ impl Parser {
             Some(TokenTree::Group(ref group)) if group.delimiter() == Delimiter::Parenthesis => {
                 self.advance();
                 Some(group.stream())
+            }
+            _ => None,
+        }
+    }
+
+    // Parse an anonymous event.
+    fn anonymous_event(&mut self) -> Option<EventAttr> {
+        match self.peek() {
+            Some(TokenTree::Group(ref group)) if group.delimiter() == Delimiter::Parenthesis => {
+                let closure: ExprClosure = syn::parse2(group.stream()).ok()?;
+                if closure.asyncness.is_some()
+                    || closure.capture.is_some()
+                    || closure.inputs.len() != 1
+                {
+                    return None;
+                }
+
+                self.advance();
+
+                let mut rng = thread_rng();
+                let id = (&mut rng)
+                    .sample_iter(Alphanumeric)
+                    .take(12)
+                    .map(char::from)
+                    .collect();
+
+                Some(EventAttr::Anonymous {
+                    id,
+                    ident: closure.inputs.first()?.to_token_stream(),
+                    body: closure.body.into_token_stream(),
+                })
             }
             _ => None,
         }
